@@ -102,6 +102,7 @@ function App() {
   const getCount = async (counterContract: CounterContract) => {
     try {
       const { value } = await counterContract.functions.count().get();
+      setToastMessage("counter value: " + value.toNumber());
       setCounter(value.toNumber());
     } catch (error) {
       console.error(error);
@@ -374,7 +375,7 @@ function App() {
               ) : (
                   <>
                   <button className="app-button fuel-color" onClick={onIncrementPressed}>
-                    Increment Fuel Counter
+                    Increment Fuel Counter [{counter}]
                   </button>
                   <p>
                     <button className="app-button fuel-color" onClick={() => setIsModalOpen(true)}>
