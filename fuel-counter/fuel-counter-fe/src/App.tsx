@@ -5,7 +5,8 @@ import './App.css'
 
 // Integrate Fuel
 //import { useState } from 'react'
-import { bn } from 'fuels';
+import { bn, Account } from 'fuels';
+import { CA } from '@arcana/ca-sdk';  //Arcana CA SDK
 import { useEffect, useState } from "react";
 import {
   useBalance,
@@ -16,6 +17,7 @@ import {
   useAccounts,
   useSendTransaction,
   useDisconnect,
+  useConnectors,
 } from "@fuels/react";
 import { CounterContract } from "./sway-api";
 
@@ -42,6 +44,7 @@ function App() {
   const { isConnecting } = useConnectUI();
   const { disconnect } = useDisconnect();
   const { wallet } = useWallet();
+  const  { connectors } = useConnectors();
   const { accounts } = useAccounts();
   const { sendTransaction } = useSendTransaction();
   /* useBalance doesn't  seem to work */
@@ -50,6 +53,7 @@ function App() {
     assetId: wallet?.provider.getBaseAssetId(),
   });
 
+  const [isCAinitialized, setIsCAinitialized] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [myBalance, setMyBalance] = useState<number | undefined>(undefined);
@@ -57,8 +61,36 @@ function App() {
   const [isCAModalOpen, setIsCAModalOpen] = useState(false);
   const [transferData, setTransferData] = useState({ toAddress: 
     "", amount: "" });
-    const [isTransferring, setIsTransferring] = useState(false); // Custom loading state
-    const [isCATransferring, setIsCATransferring] = useState(false); // Custom loading state
+  const [isTransferring, setIsTransferring] = useState(false); // Custom loading state
+  const [isCATransferring, setIsCATransferring] = useState(false); // Custom loading state
+
+  //Integrate CA SDK
+
+  const EVMprovider = window.ethereum;
+  const ca = new CA();
+    
+  //Initialize CA
+  const initCA = async () => {
+    //Set the EVM provider  
+    ca.setEVMProvider(EVMprovider);
+
+    console.log("CA is initialized with EVMProvider");
+    //Init CA object
+    await ca.init();
+    setToastMessage("CA init is called with EVMProvider");
+    setIsCAinitialized(true);
+
+  };
+
+  const enableCAinFuel = async () => {
+    //Set Fuel connector in CA
+    console.log ("Logging available connectors: ", connectors);
+    setToastMessage("Setting Fuel Connector");
+    const fuelConn = connectors[0];
+    console.log ("fuelconn.name: ", fuelConn.name);
+    await ca.setFuelConnector(fuelConn);
+    console.log("Fuel Connector is set in CA"); 
+  };
 
   const copyToClipboard = (text: string, index: number) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -119,17 +151,20 @@ function App() {
           await getCount(counterContract);
           setContract(counterContract);
           await refreshMyBalance();
+
         } catch (error) {
           console.error("Error initializing data:", error);
           setMyBalance(undefined); // Reset on error
           setContract(undefined); // Optional: reset contract on error
           setCounter(undefined); // Optional: reset counter on error
+          setIsCAinitialized(false);
         }
       }
     }
 
     initializeData();
   }, [isConnected, wallet]); 
+
 
   // Function to format balance from wei to ETH
   const formatBalance = (balanceWei?: number) => {
@@ -177,12 +212,7 @@ function App() {
       const transactionRequest = await wallet.createTransfer(toAddress, 
         amountInNanoETH, assetId);
       console.log("Transaction Request:", transactionRequest);
-      /*
-      const response = sendTransaction({
-        address: wallet.address.toAddress(),
-        transactionRequest,
-      });
-      */
+
       const response = await wallet.sendTransaction(transactionRequest);
       if (!response || !response.id) {
         throw new Error("Transaction response missing or invalid");
@@ -201,11 +231,20 @@ function App() {
   };
 
   const handleCATransfer = async () => {
-    if (!wallet) {
-      setToastMessage("Wallet not connected");
+    setToastMessage("Handling CA Send");
+    if (!wallet || !isCAinitialized) {
+      setToastMessage("Wallet not connected or CA not initialized");
       return;
     }
     setIsCATransferring(true);
+
+    enableCAinFuel();
+
+    const { provider, connector: CAconnector } = await ca.getFuelWithCA();
+    const address = CAconnector.currentAccount()!;
+    console.log("CAconnector.currentAccount(): ", address);
+
+    const CAaccount = new Account(address, provider, CAconnector);
 
     try {
       const { toAddress, amount } = transferData;
@@ -214,7 +253,7 @@ function App() {
         setToastMessage("Please fill all fields");
         return;
       }
-      /*
+      
       const amountInNanoETH = bn(parseFloat(amount) * 1e9); 
       const assetId = await wallet.provider.getBaseAssetId(); 
       console.log("Creating transfer with:", { toAddress, 
@@ -222,25 +261,23 @@ function App() {
       const transactionRequest = await wallet.createTransfer(toAddress, 
         amountInNanoETH, assetId);
       console.log("Transaction Request:", transactionRequest);
-      */
-
-      /* This did not work via React hook
-      *
-      const response = sendTransaction({
-        address: wallet.address.toAddress(),
-        transactionRequest,
-      });
-      *
-      */
+      
       /*
-      const response = await wallet.sendTransaction(transactionRequest);
+      const response = await wallet.sendTransaction(transactionRequest)
+      //console.log("Using wallet.SendTransaction Response:", response);
+      */
+      const response = await CAaccount.transfer(
+        toAddress,
+        amountInNanoETH.toString(),
+        assetId,
+      );
       if (!response || !response.id) {
         throw new Error("Transaction response missing or invalid");
       }
-      console.log("Using wallet.SendTransaction Response:", response);
+      console.log("Using account.transfer Response:", response);
       setToastMessage(`Successfully sent ${amount} ETH. Tx ID: ${response.id}`);
-      */
-      setToastMessage("CA SDKs not yet integrated!!!! Dummy Send");
+      
+      //setToastMessage("CA SDKs not yet integrated!!!! Dummy Send");
       setIsCAModalOpen(false);
       setTransferData({ toAddress: "", amount: "" });
       await refreshMyBalance();
@@ -543,6 +580,7 @@ function App() {
               <button className="app-button arcana-color"
               onClick={() => {
                 connect('Fuel wallet');
+                initCA();
               }}
             >
               {isConnecting ? "Connecting" : "Connect"}
