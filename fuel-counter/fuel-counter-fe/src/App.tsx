@@ -53,7 +53,6 @@ function App() {
     assetId: wallet?.provider.getBaseAssetId(),
   });
 
-  const [isCAinitialized, setIsCAinitialized] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [myBalance, setMyBalance] = useState<number | undefined>(undefined);
@@ -62,6 +61,8 @@ function App() {
   const [transferData, setTransferData] = useState({ toAddress: 
     "", amount: "" });
   const [isTransferring, setIsTransferring] = useState(false); // Custom loading state
+  const [isCAinitialized, setIsCAinitialized] = useState(false);
+  const [isCAFuelEnabled, setIsCAFuelEnabled] = useState(false);
   const [isCATransferring, setIsCATransferring] = useState(false); // Custom loading state
 
   //Integrate CA SDK
@@ -83,13 +84,22 @@ function App() {
   };
 
   const enableCAinFuel = async () => {
-    //Set Fuel connector in CA
-    console.log ("Logging available connectors: ", connectors);
-    setToastMessage("Setting Fuel Connector");
-    const fuelConn = connectors[0];
-    console.log ("fuelconn.name: ", fuelConn.name);
-    await ca.setFuelConnector(fuelConn);
-    console.log("Fuel Connector is set in CA"); 
+    if (!isCAFuelEnabled){
+      try {
+        //Set Fuel connector in CA
+        console.log ("Logging available Fuel connectors: ", connectors);
+        const fuelConn = connectors[0];
+        console.log ("fuelconn.name: ", fuelConn.name);
+        setToastMessage("Setting Fuel Connector...");
+        const response = await ca.setFuelConnector(fuelConn);
+        console.log("setFuelconnector response:", response)
+        setToastMessage("Setting Fuel Connector...");
+        console.log("Fuel Connector is set in CA"); 
+        setIsCAFuelEnabled(true);
+      } catch (e) {
+        console.error(e);
+      }
+    }
   };
 
   const copyToClipboard = (text: string, index: number) => {
@@ -306,6 +316,7 @@ function App() {
   const onDisconnectPressed = async () => {
     try {
       disconnect();
+      setIsCAFuelEnabled(false);
     } catch (error) {
       console.error(error);
     }
