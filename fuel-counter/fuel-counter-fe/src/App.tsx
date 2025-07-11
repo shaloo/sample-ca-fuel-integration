@@ -99,7 +99,7 @@ function App() {
   };
 
   const enableCAinFuel = async () => {
-    if (!isCAFuelEnabled && connectors.length > 0) {
+    if (isCAinitialized && !isCAFuelEnabled && connectors.length > 0) {
       try {
         const fuelConn = connectors[0];
         setToastMessage("Setting Fuel Connector...");
