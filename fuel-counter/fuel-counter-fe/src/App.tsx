@@ -103,7 +103,9 @@ function App() {
       try {
         const fuelConn = connectors[0];
         setToastMessage("Setting Fuel Connector...");
+        console.log("Fuel Connector to be set to: ", connectors[0]);
         const response = await ca.setFuelConnector(fuelConn);
+        console.log("Fuel Connector set successfully", response);
         setToastMessage("Fuel Connector set successfully");
         setIsCAFuelEnabled(true);
       } catch (e) {
@@ -415,84 +417,100 @@ function App() {
   );
 
   const FuelSection = () => (
-    <div>
-      <HeaderViteReactFuel />
-      {balance && balance.toNumber() === 0 ? (
-        <p>
-          Get testnet funds from the{" "}
-          <a
-            target="_blank"
-            rel="noopener noreferrer"
-            href={`https://faucet-testnet.fuel.network/?address=${wallet?.address.toAddress()}`}
-          >
-            Fuel Faucet
-          </a>{" "}
-          to increment the counter.
-        </p>
-      ) : (
-        <>
-          <button className="app-button fuel-color" onClick={onIncrementPressed}>
-            Increment Fuel Counter [{counter}]
-          </button>
+    <div className="app-card fuel-color">
+    <HeaderViteReactFuel/>
+    {isConnected ? (
+      <>
+      <div>
+      <h3>Counter</h3>
+      <div>{counter ?? 0}</div>
+        {balance && balance.toNumber() === 0 ? (
           <p>
-            <button className="app-button fuel-color" onClick={openFuelModal}>
-              Send
-            </button>
+            Get testnet funds from the{" "}
+            <a
+              target="_blank"
+              rel="noopener noreferrer"
+              href={`https://faucet-testnet.fuel.network/?address=${wallet?.address.toAddress()}`}
+            >
+              Fuel Faucet
+            </a>{" "}
+            to increment the counter.
           </p>
-          <button className="app-button fuel-color" onClick={onDisconnectPressed}>
-            Disconnect
-          </button>
-        </>
-      )}
-      <p>Balance: {formatBalance(myBalance)}</p>
-      {renderAccounts(accounts, copiedIndex, copyToClipboard)}
-      {toastMessage && (
-        <div className="app-toast">{toastMessage}</div>
-      )}
-      {error && (
-        <div className="app-error">{error}</div>
-      )}
-      {isModalOpen && (
-        <div className="modal-overlay fuel-color">
-          <div className="modal-content fuel-color">
-            <span
-              className="modal-close fuel-color"
-              onClick={() => setIsModalOpen(false)}
-            >
-              ×
-            </span>
-            <h3>Send Transaction</h3>
-            <div className="modal-field">
-              <label>To Address</label>
-              <input
-                type="text"
-                name="toAddress"
-                value={transferData.toAddress}
-                onChange={handleInputChange}
-                placeholder="Enter recipient address"
-              />
-            </div>
-            <div className="modal-field">
-              <label>Amount (ETH)</label>
-              <input
-                type="number"
-                name="amount"
-                value={transferData.amount}
-                onChange={handleInputChange}
-                placeholder="Enter amount"
-                step="0.000001"
-              />
-            </div>
-            <button
-              className="app-button fuel-color"
-              onClick={handleFuelTransfer}
-              disabled={isTransferring}
-            >
-              {isTransferring ? "Sending..." : "Submit"}
+        ) : (
+            <>
+            <button className="app-button fuel-color" onClick={onIncrementPressed}>
+              Increment Fuel Counter
             </button>
+            <p>
+              <button className="app-button fuel-color" onClick={() => setIsModalOpen(true)}>
+                Send
+              </button>
+            </p>  
+            <button className="app-button fuel-color" onClick={onDisconnectPressed}>
+            Disconnect
+            </button>
+            </>
+        )}
+      <p>1. Balance: {formatBalance(myBalance)}</p>
+      {renderAccounts(accounts || [], copiedIndex, copyToClipboard)}
+      {toastMessage && (
+      <div className="app-toast">
+        {toastMessage}
+      </div>
+    )}
+    {isModalOpen && (
+      <div className="modal-overlay fuel-color">
+        <div className="modal-content fuel-color">
+          <span
+            className="modal-close fuel-color "
+            onClick={() => setIsModalOpen(false)}
+          >
+            ×
+          </span>
+          <h3>Send Transaction</h3>
+          <div className="modal-field">
+            <label>To Address</label>
+            <input
+              type="text"
+              name="toAddress"
+              value={transferData.toAddress}
+              onChange={handleInputChange}
+              placeholder="Enter recipient address"
+            />
           </div>
+          <div className="modal-field">
+            <label>Amount (ETH)</label>
+            <input
+              type="number"
+              name="amount"
+              value={transferData.amount}
+              onChange={handleInputChange}
+              placeholder="Enter amount"
+              step="0.000001"
+            />
+          </div>
+          <button
+            className="app-button fuel-color"
+            onClick={handleFuelTransfer}
+            disabled={isTransferring}
+          >{isTransferring ? "Sending..." : "Submit"}
+          </button>
         </div>
-      )}
+      </div>
+    )}  
+    </div>
+    </>
+    ) : (
+          <>
+          <button className="app-button fuel-color"
+          onClick={() => {
+            connect('Fuel wallet');
+          }}
+          >
+          {isConnecting ? "Connecting" : "Connect"}
+          </button>
+          </>
+    )}
     </div>
   );
 
@@ -630,6 +648,7 @@ function App() {
           className="app-button arcana-color"
           onClick={() => {
             connect("Fuel wallet");
+            console.log("Connecting to Fuel wallet and initializing CA");
             initCA();
           }}
         >
@@ -652,50 +671,44 @@ function App() {
 
   const HeaderViteReact = () => (
     <div className="app-card">
-      <div>
-        <HeaderCommon />
-        <h2>Vite + React</h2>
-        <div className="card">
-          <button className="app-button" onClick={() => setCount((count) => count + 1)}>
-            count is {count}
-          </button>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test HMR
-          </p>
-        </div>
-        <p className="read-the-docs">
-          Click on the Vite and React logos to learn more
+      <HeaderCommon />
+      <h2>Vite + React</h2>
+      <div className="card">
+        <button className="app-button" onClick={() => setCount((count) => count + 1)}>
+          count is {count}
+        </button>
+        <p>
+          Edit <code>src/App.tsx</code> and save to test HMR
         </p>
       </div>
+      <p className="read-the-docs">
+        Click on the Vite and React logos to learn more
+      </p>
     </div>
   );
 
   const HeaderViteReactFuel = () => (
     <>
-      <div>
         <HeaderCommon />
         <a href="https://docs.fuel.network/docs/" target="_blank">
           <img src="https://avatars.githubusercontent.com/u/55993183" className="logo" alt="Fuel logo" />
         </a>
-      </div>
-      <h2>V + R + Fuel</h2>
-      <p className="read-the-docs">
-        Click on the Fuel logo to learn more
-      </p>
+        <h2>V + R + Fuel</h2>
+        <p className="read-the-docs">
+          Click on the Fuel logo to learn more
+        </p>
     </>
   );
 
   const HeaderViteReactArcana = () => (
     <>
-      <div>
-        <HeaderCommon />
-        <a href="https://docs.fuel.network/docs/" target="_blank">
-          <img src="https://avatars.githubusercontent.com/u/55993183" className="logo" alt="Fuel logo" />
-        </a>
-        <a href="https://docs.arcana.network/" target="_blank">
-          <img src="https://avatars.githubusercontent.com/u/82495837" className="logo-arcana" alt="Arcana logo" />
-        </a>
-      </div>
+      <HeaderCommon />
+      <a href="https://docs.fuel.network/docs/" target="_blank">
+        <img src="https://avatars.githubusercontent.com/u/55993183" className="logo" alt="Fuel logo" />
+      </a>
+      <a href="https://docs.arcana.network/" target="_blank">
+        <img src="https://avatars.githubusercontent.com/u/82495837" className="logo-arcana" alt="Arcana logo" />
+      </a>
       <h2>V + R + F + Arcana</h2>
       <p className="read-the-docs">
         Click on the Arcana logo to learn more
@@ -706,9 +719,11 @@ function App() {
   return (
     <>
       <TitleSection />
-      <HeaderViteReact />
-      <FuelSection />
-      <ArcanaFuelSection />
+      <div className="container">
+        <HeaderViteReact />
+        <FuelSection />
+        <ArcanaFuelSection />
+      </div>
     </>
   );
 }
